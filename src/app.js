@@ -1,5 +1,5 @@
-/* eslint-disable no-unused-vars */
 /* eslint-disable no-undef */
+
 const express = require('express');
 const logger = require('morgan');
 const passport = require('./passport/passportConfig');
