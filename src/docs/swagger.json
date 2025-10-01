@@ -1,0 +1,853 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Marketing_App API",
+    "version": "1.0.0",
+    "description": "API for managing user data with OAuth support"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local server"
+    }
+  ],
+  "paths": {
+    "/api/users/signup": {
+      "post": {
+        "summary": "Register a new user",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserSignupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "oneOf": [
+                  {
+                    "description": "User created but email not verified yet",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "_id": {
+                              "type": "string",
+                              "example": "64c3f83b91a2f9e7b5a6d001"
+                            },
+                            "username": {
+                              "type": "string",
+                              "example": "johndoe"
+                            },
+                            "email": {
+                              "type": "string",
+                              "example": "john@example.com"
+                            },
+                            "avatarURL": {
+                              "type": "string",
+                              "example": "https://www.gravatar.com/avatar/example"
+                            },
+                            "verify": { "type": "boolean", "example": false },
+                            "providers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "example": "google"
+                                  },
+                                  "id": {
+                                    "type": "string",
+                                    "example": "123456789"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "_id",
+                            "username",
+                            "email",
+                            "avatarURL",
+                            "verify",
+                            "providers"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Verification email sent"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "description": "User created and already verified (OAuth)",
+                    "schema": { "$ref": "#/components/schemas/UserResponse" }
+                  }
+                ]
+              }
+            }
+          },
+          "500": {
+            "description": "Registration failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/verify/{verificationToken}": {
+      "get": {
+        "summary": "Verify user email",
+        "tags": ["Auth"],
+        "parameters": [
+          {
+            "name": "verificationToken",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique verification token sent to user's email"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  },
+                  "example": { "message": "Email verified successfully" }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired verification token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  },
+                  "example": { "error": "Invalid or expired token" }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Verification token not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  },
+                  "example": { "error": "Token not found" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/verify": {
+      "post": {
+        "summary": "Resend verification email",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" }
+                },
+                "required": ["email"]
+              },
+              "example": { "email": "user@example.com" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification email resent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  },
+                  "example": {
+                    "message": "Verification email resent successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or already verified email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  },
+                  "example": { "error": "Invalid or already verified email" }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Email not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  },
+                  "example": { "error": "Email not found" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/login": {
+      "post": {
+        "summary": "User login",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserLoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful or user not verified",
+            "content": {
+              "application/json": {
+                "oneOf": [
+                  {
+                    "description": "User not verified",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "_id": {
+                              "type": "string",
+                              "example": "64c3f83b91a2f9e7b5a6d001"
+                            },
+                            "username": {
+                              "type": "string",
+                              "example": "johndoe"
+                            },
+                            "email": {
+                              "type": "string",
+                              "example": "john@example.com"
+                            },
+                            "avatarURL": {
+                              "type": "string",
+                              "example": "https://www.gravatar.com/avatar/example"
+                            },
+                            "verify": { "type": "boolean", "example": false },
+                            "providers": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "example": "google"
+                                  },
+                                  "id": {
+                                    "type": "string",
+                                    "example": "123456789"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "required": [
+                            "_id",
+                            "username",
+                            "email",
+                            "avatarURL",
+                            "verify",
+                            "providers"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "User not verified"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "description": "User verified or OAuth login",
+                    "schema": { "$ref": "#/components/schemas/UserResponse" }
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/logout": {
+      "post": {
+        "summary": "User logout",
+        "tags": ["Auth"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "example": "token"
+                  }
+                },
+                "required": ["token"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User logged out successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Logged out successfully"
+                    }
+                  },
+                  "required": ["message"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized or invalid refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/current": {
+      "get": {
+        "summary": "Get current logged-in user",
+        "description": "Fetches the currently authenticated user including refresh tokens.",
+        "tags": ["Auth"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Successfully fetched the current user details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized. The user is not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/update": {
+      "patch": {
+        "summary": "Update user information",
+        "description": "Allows the user to update their profile information and returns updated user info including refresh tokens.",
+        "tags": ["Auth"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": { "type": "string", "example": "newusername" },
+                  "email": {
+                    "type": "string",
+                    "example": "newemail@example.com"
+                  },
+                  "password": { "type": "string", "example": "newpassword123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User information updated successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/avatar": {
+      "patch": {
+        "summary": "Update user avatar",
+        "description": "Allows the user to upload a new avatar image to Imgur and update their profile picture.",
+        "tags": ["Auth"],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Avatar image file"
+                  }
+                }
+              },
+              "encoding": {
+                "avatar": {
+                  "contentType": "image/jpeg, image/png"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User avatar updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "avatarUrl": {
+                      "type": "string",
+                      "example": "https://i.imgur.com/example.jpg"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (e.g., no file uploaded, wrong format)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid file type. Only images are allowed."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Internal Server Error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/oauth": {
+      "post": {
+        "summary": "Login or register via OAuth",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/OAuthRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OAuth login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "OAuth login failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/refresh-token": {
+      "post": {
+        "summary": "Refresh access token",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "example": "existing_refresh_token_here"
+                  }
+                },
+                "required": ["refreshToken"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access token refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "example": "new_access_token_here"
+                    },
+                    "refreshToken": {
+                      "type": "string",
+                      "example": "new_refresh_token_here"
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "_id": {
+                          "type": "string",
+                          "example": "64c3f83b91a2f9e7b5a6d001"
+                        },
+                        "username": { "type": "string", "example": "johndoe" },
+                        "email": {
+                          "type": "string",
+                          "example": "john@example.com"
+                        },
+                        "avatarURL": {
+                          "type": "string",
+                          "example": "https://www.gravatar.com/avatar/example"
+                        },
+                        "verify": { "type": "boolean", "example": true },
+                        "providers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": { "type": "string", "example": "google" },
+                              "id": { "type": "string", "example": "123456789" }
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "_id",
+                        "username",
+                        "email",
+                        "avatarURL",
+                        "verify"
+                      ]
+                    }
+                  },
+                  "required": ["token", "refreshToken", "user"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Refresh token missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Refresh token required"
+                    }
+                  },
+                  "required": ["message"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid refresh token"
+                    }
+                  },
+                  "required": ["message"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "UserSignupRequest": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string", "example": "johndoe" },
+          "email": { "type": "string", "example": "john@example.com" },
+          "password": { "type": "string", "example": "password123" }
+        },
+        "required": ["username", "email", "password"]
+      },
+      "UserLoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "example": "john@example.com" },
+          "password": { "type": "string", "example": "password123" }
+        },
+        "required": ["email", "password"]
+      },
+      "OAuthRequest": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "example": "123456789" },
+              "name": { "type": "string", "example": "John Doe" },
+              "email": { "type": "string", "example": "john@example.com" },
+              "avatar": {
+                "type": "string",
+                "example": "https://example.com/avatar.jpg"
+              }
+            },
+            "required": ["id", "name", "email"]
+          },
+          "provider": {
+            "type": "string",
+            "enum": ["google", "facebook"],
+            "example": "google"
+          }
+        },
+        "required": ["profile", "provider"]
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "example": "existing-refresh-token"
+          }
+        },
+        "required": ["refreshToken"]
+      },
+      "RefreshTokenResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string", "example": "new-access-token" },
+          "refreshToken": { "type": "string", "example": "new-refresh-token" },
+          "user": { "$ref": "#/components/schemas/UserResponse" }
+        },
+        "required": ["token", "refreshToken", "user"]
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string", "example": "access-token" },
+          "refreshToken": {
+            "type": "string",
+            "example": "single-refresh-token"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "_id": {
+                "type": "string",
+                "example": "64c3f83b91a2f9e7b5a6d001"
+              },
+              "username": { "type": "string", "example": "johndoe" },
+              "email": { "type": "string", "example": "john@example.com" },
+              "avatarURL": {
+                "type": "string",
+                "example": "https://www.gravatar.com/avatar/example"
+              },
+              "verify": { "type": "boolean", "example": true },
+              "providers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string", "example": "google" },
+                    "id": { "type": "string", "example": "123456789" }
+                  }
+                }
+              }
+            },
+            "required": ["_id", "username", "email", "avatarURL", "verify"]
+          }
+        },
+        "required": ["token", "refreshToken", "user"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "Error message" }
+        },
+        "required": ["message"]
+      }
+    }
+  }
+}

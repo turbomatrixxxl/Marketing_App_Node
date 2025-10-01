@@ -1,0 +1,187 @@
+const {
+  registerUser,
+  getUserById,
+  loginUser,
+  logoutUser,
+  verifyUserEmailService,
+  resendVerificationEmail,
+  updateUser,
+  updateUserAvatar,
+  loginOrRegisterOAuthUser,
+  refreshAccessToken,
+} = require('../services/authServices');
+
+const { validateUser } = require('../middlewares/validationMiddleware');
+const { extractUserId } = require('../middlewares/extractUserId');
+const Joi = require('joi');
+
+// --- Register ---
+exports.register = async (req, res, next) => {
+  const { username, email, password } = req.body;
+  try {
+    const { user, token, refreshToken } = await registerUser(
+      username,
+      email,
+      password
+    );
+    res.status(201).json({ user, token, refreshToken });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+    next(error);
+  }
+};
+
+// --- Login ---
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
+  const { error } = validateUser.validate(req.body);
+  if (error) return res.status(400).json({ message: error.message });
+
+  try {
+    const { user, token, refreshToken } = await loginUser(email, password);
+    res.status(200).json({ user, token, refreshToken });
+  } catch (error) {
+    res.status(401).json({ message: error.message });
+  }
+};
+
+// --- Logout ---
+exports.logout = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader)
+      return res.status(401).json({ message: 'Missing Authorization header' });
+
+    const userId = extractUserId(authHeader);
+
+    await logoutUser(userId);
+    res.status(200).json({ message: 'Logged out successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+    next(error);
+  }
+};
+
+// --- Get current user ---
+exports.getCurrentUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader)
+      return res.status(401).json({ message: 'Missing Authorization header' });
+
+    const userId = extractUserId(authHeader);
+    const { user, token, refreshToken } = await getUserById(userId);
+    res.status(200).json({ user, token, refreshToken });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+    next(error);
+  }
+};
+
+// --- Verify email ---
+exports.verifyUserEmail = async (req, res) => {
+  const { verificationToken } = req.params;
+  try {
+    await verifyUserEmailService(verificationToken);
+    res.setHeader('Content-Type', 'text/html');
+    return res.redirect(
+      302,
+      'https://turbomatrixxxl.github.io/Health-Monitor/'
+    );
+  } catch (error) {
+    res
+      .status(404)
+      .json({ message: 'Error verifying user', error: error.message });
+  }
+};
+
+// --- Resend verification email ---
+exports.handleResendVerificationEmail = async (req, res) => {
+  const emailSchema = Joi.object({ email: Joi.string().email().required() });
+  const { error } = emailSchema.validate(req.body);
+  if (error) return res.status(400).json({ message: 'Email wrong written' });
+
+  const { email } = req.body;
+  try {
+    const response = await resendVerificationEmail(email);
+    return res.status(200).json(response);
+  } catch (error) {
+    if (error.message === 'User not found')
+      return res.status(400).json({ message: 'User not found' });
+    if (error.message === 'Verification has already been passed')
+      return res.status(400).json({ message: error.message });
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// --- Update user info ---
+exports.updateUserInfo = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader)
+      return res.status(401).json({ message: 'Missing Authorization header' });
+
+    const userId = extractUserId(authHeader);
+    const { username, email, password } = req.body;
+    const updateFields = { username, email };
+    if (password) updateFields.password = password; // hash in service
+
+    const { user, token, refreshToken } = await updateUser(
+      userId,
+      updateFields
+    );
+    res.status(200).json({ user, token, refreshToken });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+    next(error);
+  }
+};
+
+// --- Update avatar ---
+exports.updateUserAvatar = async (req, res) => {
+  try {
+    if (!req.file)
+      return res.status(400).json({ message: 'No file to upload' });
+
+    const cloudinaryUrl = req.file.path;
+    const { user, token, refreshToken } = await updateUserAvatar(
+      req.user._id,
+      cloudinaryUrl
+    );
+    res.status(200).json({ user, token, refreshToken });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// --- OAuth login/register ---
+exports.oauthLogin = async (req, res) => {
+  const { profile, provider } = req.body;
+  try {
+    const { user, token, refreshToken } = await loginOrRegisterOAuthUser(
+      profile,
+      provider
+    );
+    res.status(200).json({ user, token, refreshToken });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// --- Refresh token ---
+exports.refreshTokenController = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken)
+      return res.status(400).json({ message: 'Refresh token required' });
+
+    const {
+      user,
+      token,
+      refreshToken: newRefreshToken,
+    } = await refreshAccessToken(refreshToken);
+    return res.status(200).json({ user, token, refreshToken: newRefreshToken });
+  } catch (error) {
+    return res.status(401).json({ message: error.message });
+  }
+};
