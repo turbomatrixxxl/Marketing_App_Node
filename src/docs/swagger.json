@@ -523,13 +523,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "avatarUrl": {
-                      "type": "string",
-                      "example": "https://i.imgur.com/example.jpg"
-                    }
-                  }
+                  "$ref": "#/components/schemas/UserResponse"
                 }
               }
             }
@@ -732,6 +726,68 @@
           }
         }
       }
+    },
+    "/users/theme": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Update user's theme (dark or light)",
+        "description": "Allows an authenticated user to update their theme preference.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "theme": {
+                    "type": "string",
+                    "enum": ["light", "dark"],
+                    "example": "dark"
+                  }
+                },
+                "required": ["theme"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Theme updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request (missing or invalid theme)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (user not authenticated)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -797,20 +853,13 @@
       "RefreshTokenResponse": {
         "type": "object",
         "properties": {
-          "token": { "type": "string", "example": "new-access-token" },
-          "refreshToken": { "type": "string", "example": "new-refresh-token" },
           "user": { "$ref": "#/components/schemas/UserResponse" }
         },
-        "required": ["token", "refreshToken", "user"]
+        "required": ["user"]
       },
       "UserResponse": {
         "type": "object",
         "properties": {
-          "token": { "type": "string", "example": "access-token" },
-          "refreshToken": {
-            "type": "string",
-            "example": "single-refresh-token"
-          },
           "user": {
             "type": "object",
             "properties": {
@@ -832,14 +881,48 @@
                   "properties": {
                     "name": { "type": "string", "example": "google" },
                     "id": { "type": "string", "example": "123456789" }
-                  }
+                  },
+                  "required": ["name", "id"]
                 }
+              },
+              "refreshToken": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "example": "single-refresh-token"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2025-10-02T16:00:00.000Z"
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2025-10-09T16:00:00.000Z"
+                  },
+                  "theme": {
+                    "type": "string",
+                    "enum": ["light", "dark"],
+                    "example": "light"
+                  }
+                },
+                "required": ["token", "createdAt", "expiresAt", "theme"]
               }
             },
-            "required": ["_id", "username", "email", "avatarURL", "verify"]
+            "required": [
+              "_id",
+              "username",
+              "email",
+              "avatarURL",
+              "verify",
+              "providers",
+              "refreshToken"
+            ]
           }
         },
-        "required": ["token", "refreshToken", "user"]
+        "required": ["user"]
       },
       "ErrorResponse": {
         "type": "object",

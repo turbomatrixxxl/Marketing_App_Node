@@ -47,6 +47,11 @@ const userSchema = new mongoose.Schema(
         type: Date,
         default: () => Date.now() + 7 * 24 * 60 * 60 * 1000,
       },
+      theme: {
+        type: String,
+        enum: ['dark', 'light'],
+        default: 'light',
+      },
     },
   },
   { versionKey: false, timestamps: true }

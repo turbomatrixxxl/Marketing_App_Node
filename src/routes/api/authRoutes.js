@@ -49,4 +49,11 @@ router.post('/users/oauth', authController.oauthLogin);
 // Refresh access token
 router.post('/users/refresh-token', authController.refreshTokenController);
 
+// Update theme
+router.post(
+  '/users/theme',
+  authMiddleware,
+  authController.updateThemeController
+);
+
 module.exports = router;

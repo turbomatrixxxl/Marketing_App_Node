@@ -12,7 +12,7 @@ const generateTokens = async (user) => {
   if (!user.verify) return { token: null, refreshToken: null };
 
   const payload = { id: user._id, username: user.username, email: user.email };
-  const token = jwt.sign(payload, secret, { expiresIn: '5m' });
+  const token = jwt.sign(payload, secret, { expiresIn: '15m' });
   const refreshToken = crypto.randomBytes(64).toString('hex');
 
   user.token = token;
@@ -51,7 +51,7 @@ const registerUser = async (username, email, password) => {
 
   // Return user cu token null, pentru că nu e verificat
   // sanitize dacă e cazul în controller (aici returnăm modelul mongoose)
-  return { user, token: null, refreshToken: null };
+  return user;
 };
 
 // --- Login ---
@@ -61,8 +61,8 @@ const loginUser = async (email, password) => {
     throw new Error('Email or password is wrong');
   }
 
-  const { token, refreshToken } = await generateTokens(user);
-  return { user, token, refreshToken };
+  await generateTokens(user);
+  return user;
 };
 
 // --- Get user by ID ---
@@ -70,8 +70,8 @@ const getUserById = async (userId) => {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
 
-  const { token, refreshToken } = await generateTokens(user);
-  return { user, token, refreshToken };
+  await generateTokens(user);
+  return user;
 };
 
 // --- Logout ---
@@ -83,7 +83,7 @@ const logoutUser = async (userId) => {
   user.refreshToken = { token: null, createdAt: null, expiresAt: null };
   await user.save();
 
-  return { user, token: null, refreshToken: null };
+  return user;
 };
 
 // --- Verify email ---
@@ -96,8 +96,8 @@ const verifyUserEmailService = async (verificationToken) => {
   user.verificationToken = null;
   await user.save();
 
-  const { token, refreshToken } = await generateTokens(user);
-  return { user, token, refreshToken };
+  await generateTokens(user);
+  return user;
 };
 
 // --- Resend verification email ---
@@ -122,8 +122,8 @@ const updateUser = async (userId, fields) => {
   if (fields.password) user.setPassword(fields.password);
   await user.save();
 
-  const { token, refreshToken } = await generateTokens(user);
-  return { user, token, refreshToken };
+  await generateTokens(user);
+  return user;
 };
 
 // --- Update avatar ---
@@ -134,8 +134,8 @@ const updateUserAvatar = async (userId, avatarURL) => {
   user.avatarURL = avatarURL;
   await user.save();
 
-  const { token, refreshToken } = await generateTokens(user);
-  return { user, token, refreshToken };
+  await generateTokens(user);
+  return user;
 };
 
 // --- OAuth login/register ---
@@ -165,8 +165,8 @@ const loginOrRegisterOAuthUser = async (profile, provider) => {
     }
   }
 
-  const { token, refreshToken } = await generateTokens(user);
-  return { user, token, refreshToken };
+  await generateTokens(user);
+  return user;
 };
 
 // --- Refresh access token ---
@@ -188,7 +188,7 @@ const refreshAccessToken = async (refreshToken) => {
   }
 
   const payload = { id: user._id, username: user.username, email: user.email };
-  const token = jwt.sign(payload, secret, { expiresIn: '5m' });
+  const token = jwt.sign(payload, secret, { expiresIn: '15m' });
 
   const newRefreshToken = crypto.randomBytes(64).toString('hex');
   user.refreshToken = {
@@ -200,7 +200,18 @@ const refreshAccessToken = async (refreshToken) => {
   user.token = token;
   await user.save();
 
-  return { user, token, refreshToken: newRefreshToken };
+  return user;
+};
+
+const updateTheme = async (userId, theme) => {
+  const user = await User.findById(userId);
+  if (!user) throw new Error('User not found');
+
+  user.theme = theme;
+  await generateTokens(user);
+  await user.save();
+
+  return user;
 };
 
 module.exports = {
@@ -214,4 +225,5 @@ module.exports = {
   updateUserAvatar,
   loginOrRegisterOAuthUser,
   refreshAccessToken,
+  updateTheme,
 };

@@ -9,6 +9,7 @@ const {
   updateUserAvatar,
   loginOrRegisterOAuthUser,
   refreshAccessToken,
+  updateTheme,
 } = require('../services/authServices');
 
 const { validateUser } = require('../middlewares/validationMiddleware');
@@ -19,12 +20,8 @@ const Joi = require('joi');
 exports.register = async (req, res, next) => {
   const { username, email, password } = req.body;
   try {
-    const { user, token, refreshToken } = await registerUser(
-      username,
-      email,
-      password
-    );
-    res.status(201).json({ user, token, refreshToken });
+    const user = await registerUser(username, email, password);
+    res.status(201).json({ user });
   } catch (error) {
     res.status(500).json({ message: error.message });
     next(error);
@@ -38,8 +35,8 @@ exports.login = async (req, res) => {
   if (error) return res.status(400).json({ message: error.message });
 
   try {
-    const { user, token, refreshToken } = await loginUser(email, password);
-    res.status(200).json({ user, token, refreshToken });
+    const user = await loginUser(email, password);
+    res.status(200).json({ user });
   } catch (error) {
     res.status(401).json({ message: error.message });
   }
@@ -70,8 +67,8 @@ exports.getCurrentUser = async (req, res, next) => {
       return res.status(401).json({ message: 'Missing Authorization header' });
 
     const userId = extractUserId(authHeader);
-    const { user, token, refreshToken } = await getUserById(userId);
-    res.status(200).json({ user, token, refreshToken });
+    const user = await getUserById(userId);
+    res.status(200).json({ user });
   } catch (error) {
     res.status(500).json({ message: error.message });
     next(error);
@@ -126,11 +123,8 @@ exports.updateUserInfo = async (req, res, next) => {
     const updateFields = { username, email };
     if (password) updateFields.password = password; // hash in service
 
-    const { user, token, refreshToken } = await updateUser(
-      userId,
-      updateFields
-    );
-    res.status(200).json({ user, token, refreshToken });
+    const user = await updateUser(userId, updateFields);
+    res.status(200).json({ user });
   } catch (error) {
     res.status(500).json({ message: error.message });
     next(error);
@@ -144,11 +138,8 @@ exports.updateUserAvatar = async (req, res) => {
       return res.status(400).json({ message: 'No file to upload' });
 
     const cloudinaryUrl = req.file.path;
-    const { user, token, refreshToken } = await updateUserAvatar(
-      req.user._id,
-      cloudinaryUrl
-    );
-    res.status(200).json({ user, token, refreshToken });
+    const user = await updateUserAvatar(req.user._id, cloudinaryUrl);
+    res.status(200).json({ user });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -158,11 +149,8 @@ exports.updateUserAvatar = async (req, res) => {
 exports.oauthLogin = async (req, res) => {
   const { profile, provider } = req.body;
   try {
-    const { user, token, refreshToken } = await loginOrRegisterOAuthUser(
-      profile,
-      provider
-    );
-    res.status(200).json({ user, token, refreshToken });
+    const user = await loginOrRegisterOAuthUser(profile, provider);
+    res.status(200).json({ user });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -175,12 +163,31 @@ exports.refreshTokenController = async (req, res) => {
     if (!refreshToken)
       return res.status(400).json({ message: 'Refresh token required' });
 
-    const {
-      user,
-      token,
-      refreshToken: newRefreshToken,
-    } = await refreshAccessToken(refreshToken);
-    return res.status(200).json({ user, token, refreshToken: newRefreshToken });
+    const user = await refreshAccessToken(refreshToken);
+    return res.status(200).json({ user });
+  } catch (error) {
+    return res.status(401).json({ message: error.message });
+  }
+};
+
+// --- Update theme ---
+exports.updateThemeController = async (req, res) => {
+  try {
+    // require authMiddleware on the route so req.user exists
+    const userId = req.user && req.user._id;
+    if (!userId) return res.status(401).json({ message: 'Not authorized' });
+
+    const { theme } = req.body;
+    if (!theme) return res.status(400).json({ message: 'Theme required' });
+
+    if (theme !== 'light' && theme !== 'dark') {
+      return res
+        .status(400)
+        .json({ message: 'Theme must be "dark" or "light" only' });
+    }
+
+    const user = await updateTheme(userId, theme);
+    return res.status(200).json({ user });
   } catch (error) {
     return res.status(401).json({ message: error.message });
   }

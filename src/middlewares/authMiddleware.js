@@ -21,6 +21,10 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
 
+    if (user.token !== token) {
+      throw new Error('Token invalid. Please login again.');
+    }
+
     req.user = user;
     next();
   } catch (error) {
