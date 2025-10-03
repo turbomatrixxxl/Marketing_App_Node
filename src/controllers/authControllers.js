@@ -81,10 +81,7 @@ exports.verifyUserEmail = async (req, res) => {
   try {
     await verifyUserEmailService(verificationToken);
     res.setHeader('Content-Type', 'text/html');
-    return res.redirect(
-      302,
-      'https://turbomatrixxxl.github.io/Health-Monitor/'
-    );
+    return res.redirect(302, 'https://turbomatrixxxl.github.io/Marketing_App/');
   } catch (error) {
     res
       .status(404)

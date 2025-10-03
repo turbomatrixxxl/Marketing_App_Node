@@ -70,7 +70,6 @@ const getUserById = async (userId) => {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
 
-  await generateTokens(user);
   return user;
 };
 
@@ -96,7 +95,6 @@ const verifyUserEmailService = async (verificationToken) => {
   user.verificationToken = null;
   await user.save();
 
-  await generateTokens(user);
   return user;
 };
 
@@ -122,7 +120,6 @@ const updateUser = async (userId, fields) => {
   if (fields.password) user.setPassword(fields.password);
   await user.save();
 
-  await generateTokens(user);
   return user;
 };
 
@@ -134,7 +131,6 @@ const updateUserAvatar = async (userId, avatarURL) => {
   user.avatarURL = avatarURL;
   await user.save();
 
-  await generateTokens(user);
   return user;
 };
 
@@ -208,7 +204,6 @@ const updateTheme = async (userId, theme) => {
   if (!user) throw new Error('User not found');
 
   user.theme = theme;
-  await generateTokens(user);
   await user.save();
 
   return user;

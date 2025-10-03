@@ -50,7 +50,7 @@ router.post('/users/oauth', authController.oauthLogin);
 router.post('/users/refresh-token', authController.refreshTokenController);
 
 // Update theme
-router.post(
+router.patch(
   '/users/theme',
   authMiddleware,
   authController.updateThemeController

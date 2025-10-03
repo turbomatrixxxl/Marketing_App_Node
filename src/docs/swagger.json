@@ -728,7 +728,7 @@
       }
     },
     "/users/theme": {
-      "post": {
+      "patch": {
         "tags": ["Users"],
         "summary": "Update user's theme (dark or light)",
         "description": "Allows an authenticated user to update their theme preference.",
