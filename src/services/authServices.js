@@ -44,6 +44,10 @@ const registerUser = async (username, email, password) => {
     // asigură inițializare pentru refreshToken ca obiect (opțional)
     refreshToken: { token: null, createdAt: null, expiresAt: null },
     token: null,
+    theme,
+    avatarURL,
+    verify,
+    providers,
   });
 
   user.setPassword(password);
@@ -150,18 +154,23 @@ const loginOrRegisterOAuthUser = async (profile, provider) => {
       providers: [{ name: provider, id }],
       refreshToken: { token: null, createdAt: null, expiresAt: null },
       token: null,
+      theme: 'light',
     });
     user.setPassword(randomPassword);
     await user.save();
+
+    await generateTokens(user);
   } else {
     const providerExists = user.providers.find((p) => p.name === provider);
     if (!providerExists) {
       user.providers.push({ name: provider, id });
       await user.save();
     }
+    await generateTokens(user);
   }
 
-  await generateTokens(user);
+  user = await User.findById(user._id).lean();
+
   return user;
 };
 
