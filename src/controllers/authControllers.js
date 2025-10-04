@@ -16,6 +16,8 @@ const { validateUser } = require('../middlewares/validationMiddleware');
 const { extractUserId } = require('../middlewares/extractUserId');
 const Joi = require('joi');
 
+const axios = require('axios');
+
 // --- Register ---
 exports.register = async (req, res, next) => {
   const { username, email, password } = req.body;
@@ -142,13 +144,53 @@ exports.updateUserAvatar = async (req, res) => {
   }
 };
 
+// helper: fetch profile from FB Graph API
+const fetchFacebookProfileByAccessToken = async (accessToken) => {
+  if (!accessToken) return null;
+  try {
+    const url = `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`;
+    const { data } = await axios.get(url);
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email || null,
+      avatar: data.picture?.data?.url || null,
+    };
+  } catch (err) {
+    console.warn(
+      'FB Graph API fetch failed:',
+      err?.response?.data || err.message
+    );
+    return null;
+  }
+};
+
 // --- OAuth login/register ---
 exports.oauthLogin = async (req, res) => {
-  const { profile, provider } = req.body;
+  const { profile, provider, accessToken } = req.body;
   try {
-    const user = await loginOrRegisterOAuthUser(profile, provider);
-    res.status(200).json({ user });
+    let finalProfile = profile || {};
+
+    // dacă nu avem email sau ID corect, încercăm Graph API cu accessToken
+    if ((!finalProfile.email || !finalProfile.id) && accessToken) {
+      const fetched = await fetchFacebookProfileByAccessToken(accessToken);
+      if (fetched) {
+        finalProfile = {
+          id: fetched.id || finalProfile.id,
+          name: fetched.name || finalProfile.name,
+          email: fetched.email || finalProfile.email,
+          avatar: fetched.avatar || finalProfile.avatar,
+        };
+      }
+    }
+
+    // Apelăm serviciul tău (ensure că acesta suportă profile fără email)
+    const user = await loginOrRegisterOAuthUser(finalProfile, provider);
+
+    // Verifică că generateTokens a populat token/refreshToken
+    return res.status(200).json({ user });
   } catch (error) {
+    console.error('oauthLogin error:', error);
     res.status(500).json({ message: error.message });
   }
 };

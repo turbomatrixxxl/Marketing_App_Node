@@ -140,38 +140,67 @@ const updateUserAvatar = async (userId, avatarURL) => {
 
 // --- OAuth login/register ---
 const loginOrRegisterOAuthUser = async (profile, provider) => {
-  const { email, name, avatar, id } = profile;
-  let user = await User.findOne({ email });
+  const { email, name, avatar, id } = profile || {};
 
-  if (!user) {
-    const randomPassword = crypto.randomBytes(16).toString('hex');
-    user = new User({
-      username: name,
-      email,
-      password: randomPassword,
-      avatarURL: avatar || null,
-      verify: true,
-      providers: [{ name: provider, id }],
-      refreshToken: { token: null, createdAt: null, expiresAt: null },
-      token: null,
-      theme: 'light',
+  if (!email) {
+    throw new Error('Facebook login requires an email');
+  }
+
+  // 1) încercare după email (dacă există)
+  let user = null;
+  if (email) {
+    user = await User.findOne({ email });
+  }
+
+  // 2) fallback: după provider id
+  if (!user && id) {
+    user = await User.findOne({
+      'providers.name': provider,
+      'providers.id': id,
     });
-    user.setPassword(randomPassword);
-    await user.save();
+  }
 
-    await generateTokens(user);
-  } else {
-    const providerExists = user.providers.find((p) => p.name === provider);
+  if (user) {
+    // asigurăm existența provider entry (potrivirea pe id)
+    const providerExists = Array.isArray(user.providers)
+      ? user.providers.some((p) => p.name === provider && p.id === id)
+      : false;
+
     if (!providerExists) {
       user.providers.push({ name: provider, id });
       await user.save();
     }
+
+    // generateTokens va salva tokenurile pe user
     await generateTokens(user);
+
+    const fresh = await User.findById(user._id).lean();
+    return fresh;
   }
 
-  user = await User.findById(user._id).lean();
+  // creare user nou (posibil fără email)
+  const randomPassword = crypto.randomBytes(16).toString('hex');
+  const newUser = new User({
+    username: name || `user_${provider}_${id}`,
+    email: email || null,
+    password: randomPassword,
+    avatarURL: avatar || null,
+    verify: email ? true : false, // dacă ai email, marcăm verify true
+    providers: id ? [{ name: provider, id }] : [],
+    refreshToken: { token: null, createdAt: null, expiresAt: null },
+    token: null,
+    theme: 'light',
+  });
 
-  return user;
+  if (typeof newUser.setPassword === 'function') {
+    newUser.setPassword(randomPassword);
+  }
+
+  await newUser.save();
+  await generateTokens(newUser);
+
+  const fresh = await User.findById(newUser._id).lean();
+  return fresh;
 };
 
 // --- Refresh access token ---
