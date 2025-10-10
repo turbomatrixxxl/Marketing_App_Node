@@ -56,4 +56,10 @@ router.patch(
   authController.updateThemeController
 );
 
+// Forgot password
+router.post('/users/forgot-password', authController.forgotPasswordController);
+
+// Reset password
+router.post('/users/reset-password', authController.resetPasswordController);
+
 module.exports = router;

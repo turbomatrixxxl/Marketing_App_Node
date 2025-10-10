@@ -727,7 +727,7 @@
         }
       }
     },
-    "/users/theme": {
+    "/api/users/theme": {
       "patch": {
         "tags": ["Users"],
         "summary": "Update user's theme (dark or light)",
@@ -768,6 +768,122 @@
           },
           "400": {
             "description": "Bad request (missing or invalid theme)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (user not authenticated)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/forgot-password": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Sending password reset email to user",
+        "description": "Allows user to access the reset password module via email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                  }
+                },
+                "required": ["email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset email sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "message": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Email required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized (user not authenticated)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/reset-password": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Reseting the password for the user",
+        "description": "Allows user to reset the password.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "example": "sent-refresh-token"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                },
+                "required": ["token", "newPassword"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetPasswordResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "New password required",
             "content": {
               "application/json": {
                 "schema": {
@@ -857,6 +973,17 @@
         },
         "required": ["user"]
       },
+      "ResetPasswordResponse": {
+        "type": "object",
+        "properties": {
+          "user": { "$ref": "#/components/schemas/UserResponse" },
+          "message": {
+            "type": "string",
+            "example": "Password reset successful"
+          }
+        },
+        "required": ["user", "message"]
+      },
       "UserResponse": {
         "type": "object",
         "properties": {
@@ -885,30 +1012,10 @@
                   "required": ["name", "id"]
                 }
               },
-              "refreshToken": {
-                "type": "object",
-                "properties": {
-                  "token": {
-                    "type": "string",
-                    "example": "single-refresh-token"
-                  },
-                  "createdAt": {
-                    "type": "string",
-                    "format": "date-time",
-                    "example": "2025-10-02T16:00:00.000Z"
-                  },
-                  "expiresAt": {
-                    "type": "string",
-                    "format": "date-time",
-                    "example": "2025-10-09T16:00:00.000Z"
-                  },
-                  "theme": {
-                    "type": "string",
-                    "enum": ["light", "dark"],
-                    "example": "light"
-                  }
-                },
-                "required": ["token", "createdAt", "expiresAt", "theme"]
+              "theme": {
+                "type": "string",
+                "enum": ["light", "dark"],
+                "example": "light"
               }
             },
             "required": [
@@ -918,7 +1025,7 @@
               "avatarURL",
               "verify",
               "providers",
-              "refreshToken"
+              "theme"
             ]
           }
         },

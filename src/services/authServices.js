@@ -66,6 +66,7 @@ const loginUser = async (email, password) => {
   }
 
   await generateTokens(user);
+
   return user;
 };
 
@@ -247,6 +248,113 @@ const updateTheme = async (userId, theme) => {
   return user;
 };
 
+// --- Forgot Password ---
+const forgotPassword = async (email) => {
+  const user = await User.findOne({ email });
+  if (!user) throw new Error('User not found');
+
+  // Generăm un token unic pentru reset
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const resetTokenHash = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  user.resetPasswordToken = resetTokenHash;
+  user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1h
+  await user.save();
+
+  // Trimite email cu link către frontend
+  const localLink = `${process.env.FRONTEND_URL_LOCAL}/reset-password/${resetToken}`;
+  const prodLink = `${process.env.FRONTEND_URL_PROD}/reset-password/${resetToken}`;
+
+  const html = `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; text-align: center; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
+    <h2 style="color: #333;">Resetare parolă</h2>
+    <p style="color: #555; font-size: 16px;">
+      Apasă pe unul dintre butoanele de mai jos pentru a-ți reseta parola:
+    </p>
+    
+    <div style="margin: 30px 0;">
+      <a href="${localLink}" 
+         style="
+           background-color: #4CAF50;
+           color: white;
+           padding: 14px 28px;
+           text-decoration: none;
+           border-radius: 8px;
+           margin-right: 15px;
+           font-weight: bold;
+           display: inline-block;
+         ">
+         Localhost
+      </a>
+      
+      <a href="${prodLink}" 
+         style="
+           background-color: #2196F3;
+           color: white;
+           padding: 14px 28px;
+           text-decoration: none;
+           border-radius: 8px;
+           font-weight: bold;
+           display: inline-block;
+         ">
+         Prod
+      </a>
+    </div>
+    
+    <p style="color: #888; font-size: 14px;">
+      Dacă nu ai cerut resetarea parolei, poți ignora acest email.
+    </p>
+  </div>
+  `;
+
+  await sendVerificationEmail({
+    to: email,
+    subject: 'Resetare parolă',
+    html, // folosim HTML în loc de text simplu
+  });
+
+  return { message: 'Reset email sent.' };
+};
+
+// --- Reset Password ---
+const resetPassword = async (token, newPassword) => {
+  if (!token) throw new Error('Reset token required');
+  if (!newPassword) throw new Error('New password required');
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+  const user = await User.findOne({
+    resetPasswordToken: tokenHash,
+    resetPasswordExpires: { $gt: Date.now() },
+  });
+  if (!user) {
+    const err = new Error('Invalid or expired token');
+    err.status = 401;
+    throw err;
+  }
+
+  // setează parola (hash făcut în setPassword)
+  // dacă ai făcut setPassword async, folosește await
+  user.setPassword(newPassword);
+
+  // invalidează token + refresh token ca măsură de securitate
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
+  user.refreshToken = { token: null, createdAt: null, expiresAt: null };
+
+  await user.save();
+
+  const fresh = await User.findById(user._id).lean();
+  delete fresh.password;
+  delete fresh.resetPasswordToken;
+  delete fresh.resetPasswordExpires;
+
+  return { user: fresh, message: 'Password reset successful' };
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -259,4 +367,6 @@ module.exports = {
   loginOrRegisterOAuthUser,
   refreshAccessToken,
   updateTheme,
+  forgotPassword,
+  resetPassword,
 };

@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 const {
   registerUser,
   getUserById,
@@ -10,12 +11,14 @@ const {
   loginOrRegisterOAuthUser,
   refreshAccessToken,
   updateTheme,
+  forgotPassword,
+  resetPassword,
 } = require('../services/authServices');
 
 const { validateUser } = require('../middlewares/validationMiddleware');
 const { extractUserId } = require('../middlewares/extractUserId');
 const Joi = require('joi');
-
+require('dotenv').config();
 const axios = require('axios');
 
 // --- Register ---
@@ -38,6 +41,22 @@ exports.login = async (req, res) => {
 
   try {
     const user = await loginUser(email, password);
+
+    // Setează cookie-uri
+    res.cookie('accessToken', user.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 15 * 60 * 1000, // 15 minute
+      sameSite: 'strict',
+    });
+
+    res.cookie('refreshToken', user.refreshToken.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 zile
+      sameSite: 'strict',
+    });
+
     res.status(200).json({ user });
   } catch (error) {
     res.status(401).json({ message: error.message });
@@ -54,6 +73,10 @@ exports.logout = async (req, res, next) => {
     const userId = extractUserId(authHeader);
 
     await logoutUser(userId);
+
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+
     res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -187,6 +210,21 @@ exports.oauthLogin = async (req, res) => {
     // Apelăm serviciul tău (ensure că acesta suportă profile fără email)
     const user = await loginOrRegisterOAuthUser(finalProfile, provider);
 
+    // Setează cookie-uri
+    res.cookie('accessToken', user.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 15 * 60 * 1000, // 15 minute
+      sameSite: 'strict',
+    });
+
+    res.cookie('refreshToken', user.refreshToken.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 zile
+      sameSite: 'strict',
+    });
+
     // Verifică că generateTokens a populat token/refreshToken
     return res.status(200).json({ user });
   } catch (error) {
@@ -203,6 +241,20 @@ exports.refreshTokenController = async (req, res) => {
       return res.status(400).json({ message: 'Refresh token required' });
 
     const user = await refreshAccessToken(refreshToken);
+
+    res.cookie('accessToken', user.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 15 * 60 * 1000,
+      sameSite: 'strict',
+    });
+    res.cookie('refreshToken', user.refreshToken.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: 'strict',
+    });
+
     return res.status(200).json({ user });
   } catch (error) {
     return res.status(401).json({ message: error.message });
@@ -229,5 +281,42 @@ exports.updateThemeController = async (req, res) => {
     return res.status(200).json({ user });
   } catch (error) {
     return res.status(401).json({ message: error.message });
+  }
+};
+
+// --- Forgot password ---
+exports.forgotPasswordController = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email required' });
+
+    const { error } = validateUser.validate(req.body);
+    if (error) return res.status(400).json({ message: error.message });
+
+    const result = await forgotPassword(email);
+    return res.status(200).json({ message: result.message });
+  } catch (error) {
+    return res.status(401).json({ message: error.message });
+  }
+};
+
+// --- Reset Password ---
+exports.resetPasswordController = async (req, res) => {
+  try {
+    // suportă token din body sau query
+    const token = req.body.token || req.query.token;
+    const { newPassword } = req.body;
+
+    if (!token) return res.status(400).json({ message: 'Token required' });
+    if (!newPassword)
+      return res.status(400).json({ message: 'New password required' });
+    if (newPassword.length < 8)
+      return res.status(400).json({ message: 'Password too short' });
+
+    const { user, message } = await resetPassword(token, newPassword);
+    return res.status(200).json({ user, message });
+  } catch (error) {
+    const status = error.status || 401;
+    return res.status(status).json({ message: error.message });
   }
 };

@@ -53,8 +53,35 @@ const userSchema = new mongoose.Schema(
       enum: ['dark', 'light'],
       default: 'light',
     },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
   },
-  { versionKey: false, timestamps: true }
+  {
+    versionKey: false,
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+      transform(doc, ret) {
+        // eliminăm câmpuri sensibile din obiectul serializat
+        delete ret.password;
+        delete ret.resetPasswordToken;
+        delete ret.resetPasswordExpires;
+        delete ret.verificationToken;
+
+        // dacă există refreshToken, eliminăm doar partea secretă (token)
+        if (ret.refreshToken && typeof ret.refreshToken === 'object') {
+          delete ret.refreshToken.token;
+        }
+        return ret;
+      },
+    },
+  }
 );
 
 userSchema.methods.setPassword = function (password) {
